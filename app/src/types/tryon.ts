@@ -14,6 +14,8 @@ export interface TryonDraft {
   garmentImageUrl: string | null
   garmentTitle: string | null
   personLocalPath: string | null
+  /** 相册图落盘后的稳定地址（/.local/people/xxx.jpg），重启后仍能显示与复用 */
+  personPersistedUrl?: string | null
   personFileId: string | null
   selectedPortraitId: string | null
   selectedPortraitUrl: string | null

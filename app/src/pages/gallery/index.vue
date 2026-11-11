@@ -1,10 +1,11 @@
 <script lang="ts" setup>
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { onPullDownRefresh, onReachBottom, onShow } from '@dcloudio/uni-app'
 import type { Garment, GarmentCategory, LibraryType } from '@/types/garment'
 import { getGarments } from '@/api/garment'
 import { getCategories } from '@/api/catalog'
-import { CATEGORIES } from '@/mock/data'
+import { CATEGORIES, MOCK_GARMENTS } from '@/mock/data'
+import { useFavoritesStore } from '@/store/favorites'
 import GarmentCard from '@/components/GarmentCard.vue'
 import CategoryChips from '@/components/CategoryChips.vue'
 import EmptyState from '@/components/EmptyState.vue'
@@ -21,10 +22,21 @@ definePage({
   },
 })
 
+const favoritesStore = useFavoritesStore()
+
+type GalleryFilter = GarmentCategory | 'all' | 'favorites'
+
 const library = ref<LibraryType>('real')
-const activeCategory = ref<GarmentCategory | 'all'>('all')
+const activeCategory = ref<GalleryFilter>('all')
 const searchKeyword = ref('')
 const categoriesList = ref(CATEGORIES)
+
+/** 「我的收藏」固定排在最前面，后面才是全部 / 季节分类 */
+const chipCategories = computed(() => [
+  { key: 'favorites' as GalleryFilter, name: `❤ 收藏 ${favoritesStore.count ? `(${favoritesStore.count})` : ''}`.trim() },
+  { key: 'all' as GalleryFilter, name: '全部' },
+  ...categoriesList.value.filter(item => item.key !== 'all'),
+])
 
 const animeStyles = [
   { name: '全部风格', keyword: '' },
@@ -70,6 +82,29 @@ async function loadData(reset = false) {
   const currentVersion = ++requestVersion
 
   try {
+    // 收藏是纯本地筛选，不走接口分页
+    if (activeCategory.value === 'favorites') {
+      const kw = searchKeyword.value.trim().toLowerCase()
+      let list = MOCK_GARMENTS.filter(g => g.library === library.value && favoritesStore.isFavorite(g.id))
+      if (kw) {
+        list = list.filter(g =>
+          g.title.toLowerCase().includes(kw)
+          || g.original_id.toLowerCase().includes(kw)
+          || g.keywords.some(k => k.toLowerCase().includes(kw)),
+        )
+      }
+      const start = (page.value - 1) * pageSize
+      const slice = list.slice(start, start + pageSize)
+      if (currentVersion !== requestVersion)
+        return
+      garments.value = reset ? slice : [...garments.value, ...slice]
+      total.value = list.length
+      hasMore.value = start + pageSize < list.length
+      if (hasMore.value)
+        page.value += 1
+      return
+    }
+
     const res = await getGarments({
       library: library.value,
       category: activeCategory.value,
@@ -114,12 +149,18 @@ function handleSearchInput(e: any) {
   }, 300)
 }
 
-function handleSelectCategory(cat: GarmentCategory | 'all') {
+function handleSelectCategory(cat: GalleryFilter) {
   if (activeCategory.value === cat)
     return
   activeCategory.value = cat
   loadData(true)
 }
+
+// 在「收藏」标签下取消收藏后，列表要立刻跟着变
+watch(() => favoritesStore.count, () => {
+  if (activeCategory.value === 'favorites')
+    loadData(true)
+})
 
 function handleToggleLibrary(lib: LibraryType) {
   if (library.value === lib)
@@ -221,7 +262,7 @@ onMounted(async () => {
 
       <!-- 分类 Chips -->
       <CategoryChips
-        :categories="categoriesList"
+        :categories="chipCategories"
         :active-category="activeCategory"
         @select="handleSelectCategory"
       />
@@ -272,9 +313,9 @@ onMounted(async () => {
       <!-- 空态展示 -->
       <EmptyState
         v-else-if="!loading"
-        title="没有找到相关服装"
-        description="尝试换个关键词，或切换图库分类看看吧"
-        action-text="清空搜索"
+        :title="activeCategory === 'favorites' ? '还没有收藏的服装' : '没有找到相关服装'"
+        :description="activeCategory === 'favorites' ? '在卡片右上角点爱心，收藏的服装会集中出现在这个标签里' : '尝试换个关键词，或切换图库分类看看吧'"
+        :action-text="activeCategory === 'favorites' ? '去逛逛全部' : '清空搜索'"
         @action="searchKeyword = ''; activeCategory = 'all'; loadData(true)"
       />
 

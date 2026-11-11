@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { onReachBottom } from '@dcloudio/uni-app'
 import type { PoseItem } from '@/service/poseLibrary'
 import {
@@ -9,6 +9,7 @@ import {
   POSE_ITEMS,
   poseThumbUrl,
 } from '@/service/poseLibrary'
+import { usePoseFavoritesStore } from '@/store/poseFavorites'
 import { useTryonStore } from '@/store/tryon'
 import { showToast } from '@/utils/platform'
 
@@ -24,9 +25,21 @@ definePage({
 })
 
 const tryonStore = useTryonStore()
+const poseFavorites = usePoseFavoritesStore()
+
+const FAVORITES_KEY = 'favorites'
 
 const groupTabs = getPoseGroups()
 const categoryTabs = getPoseCategories()
+
+/** 「收藏」固定排在最前面 */
+const groupTabsWithFavorites = computed(() => [
+  {
+    key: FAVORITES_KEY,
+    name: poseFavorites.count ? `❤ 收藏 (${poseFavorites.count})` : '❤ 收藏',
+  },
+  ...groupTabs,
+])
 
 const activeGroup = ref(POSE_ALL_KEY)
 const activeCategory = ref(POSE_ALL_KEY)
@@ -36,6 +49,9 @@ const PAGE_STEP = 60
 const visibleCount = ref(PAGE_STEP)
 
 const filteredPoses = computed(() => {
+  if (activeGroup.value === FAVORITES_KEY) {
+    return POSE_ITEMS.filter(item => poseFavorites.isFavorite(item.id))
+  }
   return POSE_ITEMS.filter((item) => {
     if (activeGroup.value !== POSE_ALL_KEY && String(item.g) !== activeGroup.value)
       return false
@@ -43,6 +59,21 @@ const filteredPoses = computed(() => {
       return false
     return true
   })
+})
+
+const isFavoritesTab = computed(() => activeGroup.value === FAVORITES_KEY)
+
+function handleTogglePoseFavorite(item: PoseItem, e: any) {
+  if (e && e.stopPropagation)
+    e.stopPropagation()
+  const added = poseFavorites.toggleFavorite(item.id)
+  showToast(added ? '已收藏这个姿势 ✦' : '已取消收藏')
+}
+
+// 收藏页里取消收藏后立刻从列表消失
+watch(() => poseFavorites.count, () => {
+  if (activeGroup.value === FAVORITES_KEY)
+    visibleCount.value = PAGE_STEP
 })
 
 const visiblePoses = computed(() => filteredPoses.value.slice(0, visibleCount.value))
@@ -109,7 +140,7 @@ onReachBottom(() => {
       <scroll-view scroll-x class="tabs-scroll" :show-scrollbar="false">
         <view class="tabs-row">
           <view
-            v-for="tab in groupTabs"
+            v-for="tab in groupTabsWithFavorites"
             :key="tab.key"
             class="tab-chip"
             :class="{ active: activeGroup === tab.key }"
@@ -120,8 +151,8 @@ onReachBottom(() => {
         </view>
       </scroll-view>
 
-      <!-- 分类标签 -->
-      <scroll-view scroll-x class="tabs-scroll" :show-scrollbar="false">
+      <!-- 分类标签（收藏页下不显示，避免和体系分组打架） -->
+      <scroll-view v-if="!isFavoritesTab" scroll-x class="tabs-scroll" :show-scrollbar="false">
         <view class="tabs-row">
           <view
             v-for="tab in categoryTabs"
@@ -154,6 +185,13 @@ onReachBottom(() => {
             class="pose-img"
             lazy-load
           />
+          <!-- 收藏按钮 -->
+          <view class="pose-fav" :class="{ saved: poseFavorites.isFavorite(item.id) }" @tap.stop="handleTogglePoseFavorite(item, $event)">
+            <view
+              :class="poseFavorites.isFavorite(item.id) ? 'i-carbon-favorite-filled text-#cc667b' : 'i-carbon-favorite text-#8a8a8a'"
+              class="text-12px"
+            />
+          </view>
           <view class="pose-info">
             <text class="pose-name">{{ item.t }}</text>
           </view>
@@ -164,7 +202,7 @@ onReachBottom(() => {
       </view>
 
       <view v-if="!filteredPoses.length" class="py-10 text-center text-11px text-#bba">
-        该组合下暂无姿势，换个分组试试
+        {{ isFavoritesTab ? '还没有收藏的姿势，点卡片左上角的爱心就能收藏' : '该组合下暂无姿势，换个分组试试' }}
       </view>
 
       <view v-else-if="hasMore" class="py-8 text-center text-11px text-#bba">
@@ -310,5 +348,28 @@ onReachBottom(() => {
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+.pose-fav {
+  position: absolute;
+  left: 8rpx;
+  top: 8rpx;
+  width: 42rpx;
+  height: 42rpx;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.92);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+  transition: all 0.2s ease;
+
+  &.saved {
+    background: #fdeef2;
+  }
+
+  &:active {
+    transform: scale(0.9);
+  }
 }
 </style>

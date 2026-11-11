@@ -46,7 +46,10 @@ const GRSAI_DIRECT_OPTIONS = [
 ]
 
 const personDisplayUrl = computed(() => {
-  return tryonStore.draft.personLocalPath || tryonStore.draft.selectedPortraitUrl || null
+  return tryonStore.draft.personLocalPath
+    || tryonStore.draft.personPersistedUrl
+    || tryonStore.draft.selectedPortraitUrl
+    || null
 })
 
 const garmentDisplayUrl = computed(() => {
@@ -175,11 +178,8 @@ async function handleStartTryon() {
         poseThumb: poseRef || undefined,
       })
 
-      // 已提交的服装 / 姿势清掉，方便直接挑下一套；人像保留
-      tryonStore.draft.garmentId = null
-      tryonStore.draft.garmentImageUrl = null
-      tryonStore.draft.garmentTitle = null
-      tryonStore.clearPose()
+      // 上次选好的服装 / 姿势都留着，方便连点同款或微调；人像落盘成稳定地址一并保留
+      tryonStore.setPersonPersisted(personStored)
 
       uni.hideLoading()
       showToast('已加入任务队列 ✦', 'success')

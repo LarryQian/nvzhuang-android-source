@@ -1,16 +1,17 @@
 <script setup lang="ts">
-import type { CategoryItem, GarmentCategory } from '@/types/garment'
+import type { CategoryItem } from '@/types/garment'
 
 defineProps<{
-  categories: CategoryItem[]
-  activeCategory: GarmentCategory | 'all'
+  /** 允许额外的本地标签（如 favorites）排在分类前面 */
+  categories: Array<Omit<CategoryItem, 'key'> & { key: string }>
+  activeCategory: string
 }>()
 
 const emit = defineEmits<{
-  (e: 'select', category: GarmentCategory | 'all'): void
+  (e: 'select', key: string): void
 }>()
 
-function handleClick(key: GarmentCategory | 'all') {
+function handleClick(key: string) {
   emit('select', key)
 }
 </script>
