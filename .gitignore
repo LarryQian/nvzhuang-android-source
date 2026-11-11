@@ -1,0 +1,50 @@
+# WorkBuddy 内部文件（含 appId、本地路径、分享链接等，不应提交）
+.workbuddy/
+*.genie
+
+# 系统/编辑器
+.DS_Store
+Thumbs.db
+desktop.ini
+.idea/
+
+# 环境变量与密钥
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+id_rsa*
+*.p12
+*.pfx
+
+# 本地配置文件与日志（禁止提交任何真实 Key 与凭据）
+config.yaml
+**/config/config.yaml
+*.log
+
+# 前端依赖与构建产物
+node_modules/
+**/node_modules/
+dist/
+**/dist/
+
+# 临时测试生成输出
+output/
+*.zip
+
+# Android 壳构建产物与本地密钥（不进仓库）
+android/build/
+android/keystore/
+android/mirror/
+android/res/values/grsai.xml
+release/*.apk
+release/*.idsig
+app/src/static/data/catalog-lite.json.lite-backup
+*.jks
+
+# 原图体积过大（113 MB），由上游仓库 / 镜像获取
+assets/img/
+
+# 公开仓库只放源码：安装包与实机截图留在私有仓库
+release/
