@@ -80,6 +80,9 @@ Write-Host "== aapt2 link ==" -ForegroundColor Cyan
     -o $BaseApk `
     -I $AndroidJar `
     --manifest (Join-Path $ProjectRoot "AndroidManifest.xml") `
+    --version-code $VersionCode `
+    --version-name $VersionName `
+    --replace-version `
     --java $GenDir `
     --auto-add-overlay `
     $CompiledRes
